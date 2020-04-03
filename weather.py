@@ -347,7 +347,6 @@ class NWSWeather(WeatherEntity):
         for forecast_entry in self._forecast:
             day = forecast_entry.get("isDaytime")
             if day:
-                _LOGGER.debug("Debug: %s", str(forecast_entry.get("temperature")))
                 data = {
                     ATTR_FORECAST_DETAIL_DESCRIPTION: forecast_entry.get(
                         "detailedForecast"
@@ -357,7 +356,8 @@ class NWSWeather(WeatherEntity):
                 }
 
                 if self.mode == "daynight":
-                    data[ATTR_FORECAST_DAYTIME] = forecast_entry.get("isDaytime")
+                    data[ATTR_FORECAST_DAYTIME] = forecast_entry.get(
+                                                    "isDaytime")
                 time = forecast_entry.get("iconTime")
                 weather = forecast_entry.get("iconWeather")
                 if time and weather:
@@ -367,12 +367,14 @@ class NWSWeather(WeatherEntity):
                 data[ATTR_FORECAST_CONDITION] = cond
                 data[ATTR_FORECAST_PRECIP_PROB] = precip
 
-                data[ATTR_FORECAST_WIND_BEARING] = forecast_entry.get("windBearing")
+                data[ATTR_FORECAST_WIND_BEARING] = forecast_entry.get(
+                                                    "windBearing")
                 wind_speed = forecast_entry.get("windSpeedAvg")
                 if wind_speed:
                     if self.is_metric:
                         data[ATTR_FORECAST_WIND_SPEED] = round(
-                            convert_distance(wind_speed, LENGTH_MILES, LENGTH_KILOMETERS)
+                            convert_distance(wind_speed, LENGTH_MILES,
+                                             LENGTH_KILOMETERS)
                         )
                     else:
                         data[ATTR_FORECAST_WIND_SPEED] = round(wind_speed)
@@ -382,10 +384,10 @@ class NWSWeather(WeatherEntity):
             else:
                 _LOGGER.debug("Adding overnight low.")
                 data = {}
-                data[ATTR_FORECAST_TEMP_LOW] = forecast_entry.get("temperature")
+                data[ATTR_FORECAST_TEMP_LOW] = forecast_entry.get(
+                                                "temperature")
                 index = len(forecast) - 1
                 if index >= 0:
+                    data[ATTR_FORECAST_DETAIL_DESCRIPTION] = forecast[-1][ATTR_FORECAST_DETAIL_DESCRIPTION] + " Tonight, " + forecast_entry.get("detailedForecast")
                     forecast[-1].update(data)
-
-        _LOGGER.debug("Returning data: %s", str(forecast))
         return forecast
