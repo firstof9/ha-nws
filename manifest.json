@@ -5,6 +5,6 @@
   "codeowners": ["@MatthewFlamm"],
   "requirements": ["pynws==0.10.4"],
   "quality_scale": "platinum",
-  "config_flow": true
+  "config_flow": true,
   "version": "1.0.0"
 }
