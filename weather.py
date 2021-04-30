@@ -5,6 +5,7 @@ from homeassistant.components.weather import (
     ATTR_FORECAST_CONDITION,
     ATTR_FORECAST_PRECIPITATION_PROBABILITY,
     ATTR_FORECAST_TEMP,
+    ATTR_FORECAST_TEMP_LOW,
     ATTR_FORECAST_TIME,
     ATTR_FORECAST_WIND_BEARING,
     ATTR_FORECAST_WIND_SPEED,
@@ -246,37 +247,52 @@ class NWSWeather(WeatherEntity):
             return None
         forecast = []
         for forecast_entry in self._forecast:
-            data = {
-                ATTR_FORECAST_DETAILED_DESCRIPTION: forecast_entry.get(
-                    "detailedForecast"
-                ),
-                ATTR_FORECAST_TEMP: forecast_entry.get("temperature"),
-                ATTR_FORECAST_TIME: forecast_entry.get("startTime"),
-            }
+            day = forecast_entry.get("isDaytime")
+            if day:
+                data = {
+                    ATTR_FORECAST_DETAILED_DESCRIPTION: forecast_entry.get(
+                        "detailedForecast"
+                    ),
+                    ATTR_FORECAST_TEMP: forecast_entry.get("temperature"),
+                    ATTR_FORECAST_TIME: forecast_entry.get("startTime"),
+                }
 
-            if self.mode == DAYNIGHT:
-                data[ATTR_FORECAST_DAYTIME] = forecast_entry.get("isDaytime")
-            time = forecast_entry.get("iconTime")
-            weather = forecast_entry.get("iconWeather")
-            if time and weather:
-                cond, precip = convert_condition(time, weather)
-            else:
-                cond, precip = None, None
-            data[ATTR_FORECAST_CONDITION] = cond
-            data[ATTR_FORECAST_PRECIPITATION_PROBABILITY] = precip
-
-            data[ATTR_FORECAST_WIND_BEARING] = forecast_entry.get("windBearing")
-            wind_speed = forecast_entry.get("windSpeedAvg")
-            if wind_speed is not None:
-                if self.is_metric:
-                    data[ATTR_FORECAST_WIND_SPEED] = round(
-                        convert_distance(wind_speed, LENGTH_MILES, LENGTH_KILOMETERS)
-                    )
+                if self.mode == DAYNIGHT:
+                    data[ATTR_FORECAST_DAYTIME] = forecast_entry.get("isDaytime")
+                time = forecast_entry.get("iconTime")
+                weather = forecast_entry.get("iconWeather")
+                if time and weather:
+                    cond, precip = convert_condition(time, weather)
                 else:
-                    data[ATTR_FORECAST_WIND_SPEED] = round(wind_speed)
+                    cond, precip = None, None
+                data[ATTR_FORECAST_CONDITION] = cond
+                data[ATTR_FORECAST_PRECIPITATION_PROBABILITY] = precip
+
+                data[ATTR_FORECAST_WIND_BEARING] = forecast_entry.get("windBearing")
+                wind_speed = forecast_entry.get("windSpeedAvg")
+                if wind_speed is not None:
+                    if self.is_metric:
+                        data[ATTR_FORECAST_WIND_SPEED] = round(
+                            convert_distance(
+                                wind_speed, LENGTH_MILES, LENGTH_KILOMETERS
+                            )
+                        )
+                    else:
+                        data[ATTR_FORECAST_WIND_SPEED] = round(wind_speed)
+                else:
+                    data[ATTR_FORECAST_WIND_SPEED] = None
+                forecast.append(data)
             else:
-                data[ATTR_FORECAST_WIND_SPEED] = None
-            forecast.append(data)
+                data = {}
+                data[ATTR_FORECAST_TEMP_LOW] = forecast_entry.get("temperature")
+                index = len(forecast) - 1
+                if index >= 0:
+                    data[ATTR_FORECAST_DETAILED_DESCRIPTION] = (
+                        forecast[-1][ATTR_FORECAST_DETAILED_DESCRIPTION]
+                        + " Tonight, "
+                        + forecast_entry.get("detailedForecast")
+                    )
+                    forecast[-1].update(data)
         return forecast
 
     @property
