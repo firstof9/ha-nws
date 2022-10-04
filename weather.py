@@ -3,14 +3,15 @@ from homeassistant.components.weather import (
     ATTR_CONDITION_CLEAR_NIGHT,
     ATTR_CONDITION_SUNNY,
     ATTR_FORECAST_CONDITION,
-    ATTR_FORECAST_PRECIPITATION_PROBABILITY,
     ATTR_FORECAST_NATIVE_TEMP,
     ATTR_FORECAST_NATIVE_TEMP_LOW,
+    ATTR_FORECAST_NATIVE_WIND_SPEED,
+    ATTR_FORECAST_PRECIPITATION_PROBABILITY,
     ATTR_FORECAST_TIME,
     ATTR_FORECAST_WIND_BEARING,
-    ATTR_FORECAST_NATIVE_WIND_SPEED,
     WeatherEntity,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -23,12 +24,9 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.typing import ConfigType
-#from homeassistant.util.distance import convert as convert_distance
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.dt import utcnow
-#from homeassistant.util.pressure import convert as convert_pressure
-from homeassistant.util.speed import convert as convert_speed
-from homeassistant.util.temperature import convert as convert_temperature
+from homeassistant.util.unit_conversion import SpeedConverter, TemperatureConverter
 
 from . import base_unique_id, device_info
 from .const import (
@@ -79,7 +77,7 @@ def convert_condition(time, weather):
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigType, async_add_entities
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the NWS weather platform."""
     hass_data = hass.data[DOMAIN][entry.entry_id]
@@ -95,6 +93,8 @@ async def async_setup_entry(
 
 class NWSWeather(WeatherEntity):
     """Representation of a weather condition."""
+
+    _attr_should_poll = False
 
     def __init__(self, entry_data, hass_data, mode, units):
         """Initialise the platform with a data instance and station name."""
@@ -124,6 +124,16 @@ class NWSWeather(WeatherEntity):
         )
         self._update_callback()
 
+    async def async_added_to_hass(self) -> None:
+        """Set up a listener and load data."""
+        self.async_on_remove(
+            self.coordinator_observation.async_add_listener(self._update_callback)
+        )
+        self.async_on_remove(
+            self.coordinator_forecast.async_add_listener(self._update_callback)
+        )
+        self._update_callback()
+
     @callback
     def _update_callback(self) -> None:
         """Load data from integration."""
@@ -133,12 +143,7 @@ class NWSWeather(WeatherEntity):
         else:
             self._forecast = self.nws.forecast_hourly
 
-        self.async_write_ha_state()
-
-    @property
-    def should_poll(self) -> bool:
-        """Entities do not individually poll."""
-        return False
+        self.async_write_ha_state()        
 
     @property
     def attribution(self):
@@ -177,10 +182,9 @@ class NWSWeather(WeatherEntity):
     @property
     def humidity(self):
         """Return the name of the sensor."""
-        humidity = None
         if self.observation:
-            humidity = self.observation.get("relativeHumidity")
-        return humidity
+            return self.observation.get("relativeHumidity")
+        return None
 
     @property
     def native_wind_speed(self):
@@ -197,11 +201,9 @@ class NWSWeather(WeatherEntity):
     @property
     def wind_bearing(self):
         """Return the current wind bearing (degrees)."""
-        wind_bearing = None
         if self.observation:
-            wind_bearing = self.observation.get("windDirection")
-        return wind_bearing
-
+            return self.observation.get("windDirection")
+        return None
 
     @property
     def condition(self):
@@ -245,8 +247,8 @@ class NWSWeather(WeatherEntity):
                 }
 
                 if (temp := forecast_entry.get("temperature")) is not None:
-                    data[ATTR_FORECAST_NATIVE_TEMP] = convert_temperature(
-                    temp, TEMP_FAHRENHEIT, TEMP_CELSIUS
+                    data[ATTR_FORECAST_NATIVE_TEMP] = TemperatureConverter.convert(
+                        temp, TEMP_FAHRENHEIT, TEMP_CELSIUS
                     )
                 else:
                     data[ATTR_FORECAST_NATIVE_TEMP] = None
@@ -265,7 +267,7 @@ class NWSWeather(WeatherEntity):
                 data[ATTR_FORECAST_WIND_BEARING] = forecast_entry.get("windBearing")
                 wind_speed = forecast_entry.get("windSpeedAvg")
                 if wind_speed is not None:
-                    data[ATTR_FORECAST_NATIVE_WIND_SPEED] = convert_speed(
+                    data[ATTR_FORECAST_NATIVE_WIND_SPEED] = SpeedConverter.convert(
                         wind_speed, SPEED_MILES_PER_HOUR, SPEED_KILOMETERS_PER_HOUR
                     )
                 else:
@@ -274,8 +276,8 @@ class NWSWeather(WeatherEntity):
             else:
                 data = {}
                 if (temp := forecast_entry.get("temperature")) is not None:
-                    data[ATTR_FORECAST_NATIVE_TEMP_LOW] = convert_temperature(
-                    temp, TEMP_FAHRENHEIT, TEMP_CELSIUS
+                    data[ATTR_FORECAST_NATIVE_TEMP] = TemperatureConverter.convert(
+                        temp, TEMP_FAHRENHEIT, TEMP_CELSIUS
                     )
                 else:
                     data[ATTR_FORECAST_NATIVE_TEMP_LOW] = None
@@ -323,11 +325,6 @@ class NWSWeather(WeatherEntity):
         """
         await self.coordinator_observation.async_request_refresh()
         await self.coordinator_forecast.async_request_refresh()
-
-    @property
-    def entity_registry_enabled_default(self) -> bool:
-        """Return if the entity should be enabled when first added to the entity registry."""
-        return self.mode == DAYNIGHT
 
     @property
     def entity_registry_enabled_default(self) -> bool:
