@@ -276,7 +276,7 @@ class NWSWeather(WeatherEntity):
             else:
                 data = {}
                 if (temp := forecast_entry.get("temperature")) is not None:
-                    data[ATTR_FORECAST_NATIVE_TEMP] = TemperatureConverter.convert(
+                    data[ATTR_FORECAST_NATIVE_TEMP_LOW] = TemperatureConverter.convert(
                         temp, TEMP_FAHRENHEIT, TEMP_CELSIUS
                     )
                 else:
