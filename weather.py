@@ -314,7 +314,7 @@ class NWSWeather(CoordinatorWeatherEntity):
             else:
                 data = {}
                 if (temp := forecast_entry.get("temperature")) is not None:
-                    data[ATTR_FORECAST_NATIVE_DEW_POINT] = TemperatureConverter.convert(
+                    data[ATTR_FORECAST_NATIVE_TEMP_LOW] = TemperatureConverter.convert(
                         temp, UnitOfTemperature.FAHRENHEIT, UnitOfTemperature.CELSIUS
                     )
                 else:
